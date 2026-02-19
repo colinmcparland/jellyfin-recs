@@ -7,12 +7,14 @@
       <h2>Music Discovery Settings</h2>
 
       <div id="jsInjectorWarning" style="display:none; padding:1em; margin-bottom:1.5em; border-radius:4px; background:rgba(255,152,0,0.15); border:1px solid rgba(255,152,0,0.4);">
-        <strong>JavaScript Injector plugin required</strong>
+        <strong>Required plugins missing</strong>
+        <p id="jsInjectorWarningText" style="margin:0.5em 0 0;">
+          The discovery panel requires these plugins to load scripts into the Jellyfin web UI:
+        </p>
+        <ul id="jsInjectorWarningList" style="margin:0.5em 0 0; padding-left:1.5em;">
+        </ul>
         <p style="margin:0.5em 0 0;">
-          The discovery panel needs the
-          <a href="https://github.com/n00bcodr/Jellyfin-JavaScript-Injector" target="_blank" rel="noopener noreferrer">JavaScript Injector</a>
-          plugin to load scripts into the Jellyfin web UI.
-          Install it from the plugin catalog, then restart Jellyfin.
+          Install them from the plugin catalog, then restart Jellyfin.
         </p>
       </div>
 

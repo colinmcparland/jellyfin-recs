@@ -63,20 +63,7 @@
             || document.querySelector('.page');
         if (detailContent) detailContent.appendChild(loadingPanel);
 
-        fetch(url, {
-            headers: {
-                'Authorization': 'MediaBrowserToken ' + ApiClient.accessToken()
-            }
-        })
-        .then(function (response) {
-            if (!response.ok) {
-                if (response.status === 400) {
-                    console.log('Music Discovery: API key not configured');
-                }
-                return null;
-            }
-            return response.json();
-        })
+        ApiClient.getJSON(url)
         .then(function (data) {
             // Remove loading panel
             var existing = document.querySelector('.' + PANEL_CLASS);
