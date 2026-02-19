@@ -3,6 +3,7 @@
 
     var PLUGIN_ID = 'a3b9c2d1-e4f5-6789-abcd-ef0123456789';
     var PANEL_CLASS = 'musicDiscoveryPanel';
+    var _pendingTimer = null;
 
     // Load CSS
     var cssLink = document.querySelector('link[href*="MusicDiscoveryCSS"]');
@@ -13,17 +14,26 @@
         document.head.appendChild(cssLink);
     }
 
-    // Listen for page navigation
-    document.addEventListener('viewshow', function (e) {
-        var page = e.detail && e.detail.element ? e.detail.element : e.target;
-        if (!page) return;
+    function scheduleInject(delay) {
+        if (_pendingTimer) clearTimeout(_pendingTimer);
+        _pendingTimer = setTimeout(function () {
+            _pendingTimer = null;
+            tryInjectPanel();
+        }, delay);
+    }
 
-        setTimeout(function () {
-            tryInjectPanel(page);
-        }, 300);
+    // viewshow fires when Jellyfin loads a new view type (e.g. first time opening details)
+    document.addEventListener('viewshow', function () {
+        scheduleInject(300);
     });
 
-    function tryInjectPanel(page) {
+    // hashchange fires on every SPA navigation, including same-view-type navigations
+    // (e.g. album → album via "More like this") where viewshow does NOT re-fire
+    window.addEventListener('hashchange', function () {
+        scheduleInject(500);
+    });
+
+    function tryInjectPanel() {
         var params = new URLSearchParams(
             window.location.hash.indexOf('?') > -1
                 ? window.location.hash.split('?')[1]
