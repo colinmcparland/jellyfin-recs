@@ -1,10 +1,7 @@
-<!DOCTYPE html>
-<html>
-<head><title>Music Discovery</title></head>
-<body>
 <div id="musicDiscoveryConfigPage" data-role="page"
      class="page type-interior pluginConfigurationPage"
-     data-require="emby-input,emby-button,emby-checkbox,emby-select">
+     data-require="emby-input,emby-button,emby-checkbox,emby-select"
+     data-controller="__plugin/MusicDiscoveryConfig.js">
   <div data-role="content">
     <div class="content-primary">
       <h2>Music Discovery Settings</h2>
@@ -70,16 +67,4 @@
       </form>
     </div>
   </div>
-  <script src="configurationpage?name=MusicDiscoveryConfigJS"></script>
-  <script>
-    // Auto-load discovery panel script on first config page visit
-    if (!window.__musicDiscoveryLoaded) {
-        window.__musicDiscoveryLoaded = true;
-        var discoverScript = document.createElement('script');
-        discoverScript.src = 'configurationpage?name=MusicDiscoveryJS';
-        document.head.appendChild(discoverScript);
-    }
-  </script>
 </div>
-</body>
-</html>
