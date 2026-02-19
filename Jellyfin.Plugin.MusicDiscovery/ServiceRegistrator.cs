@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Hosting;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Plugins;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,6 +10,6 @@ public class ServiceRegistrator : IPluginServiceRegistrator
     {
         serviceCollection.AddHttpClient("MusicDiscovery");
         serviceCollection.AddSingleton<LastFm.LastFmApiClient>();
-        serviceCollection.AddTransient<IStartupFilter, ScriptInjection.ScriptInjectionStartupFilter>();
+        serviceCollection.AddHostedService<ScriptRegistration.ScriptRegistrationService>();
     }
 }

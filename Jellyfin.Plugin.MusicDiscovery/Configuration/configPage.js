@@ -12,6 +12,19 @@ export default function (view) {
             view.querySelector('#chkEnableTracks').checked = config.EnableForTracks;
             Dashboard.hideLoadingMsg();
         });
+
+        // Check if JavaScript Injector plugin is installed
+        fetch(ApiClient.getUrl('Plugins'), {
+            headers: { 'Authorization': 'MediaBrowserToken ' + ApiClient.accessToken() }
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (plugins) {
+            var found = plugins.some(function (p) {
+                return p.Name && p.Name.indexOf('JavaScript Injector') !== -1;
+            });
+            view.querySelector('#jsInjectorWarning').style.display = found ? 'none' : 'block';
+        })
+        .catch(function () {});
     });
 
     view.querySelector('#musicDiscoveryConfigForm')
