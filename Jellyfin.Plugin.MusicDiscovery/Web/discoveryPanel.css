@@ -4,179 +4,64 @@
 
 }
 
-.md-discovery-title {
-    font-size: 1.5em;
-    margin-bottom: 0.8em;
+/* Horizontal scroll for discovery section */
+.musicDiscoveryPanel .scrollSlider {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; /* Firefox */
 }
 
-/* Card Grid */
-.md-discovery-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 1.2em;
+.musicDiscoveryPanel .scrollSlider::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
 }
 
-@media (max-width: 600px) {
-    .md-discovery-grid {
-        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-        gap: 0.8em;
-    }
-}
-
-/* Card */
-.md-discovery-card {
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: .2em;
-    overflow: hidden;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.md-discovery-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-/* Card Image */
-.md-discovery-card-img {
-    position: relative;
-    width: 100%;
-    padding-top: 100%; /* 1:1 aspect ratio */
-    background: rgba(255, 255, 255, 0.08);
-    overflow: hidden;
-}
-
-.md-discovery-card-img img {
+/* Play button overlay */
+.md-play-overlay {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    object-fit: cover;
-}
-
-.md-discovery-card-img-placeholder {
     display: flex;
     align-items: center;
     justify-content: center;
-}
-
-.md-discovery-card-img-placeholder .material-icons {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 3em;
-    opacity: 0.3;
-}
-
-/* Card Info */
-.md-discovery-card-info {
-    padding: 0.6em 0.8em;
-}
-
-.md-discovery-card-name {
-    font-weight: 600;
-    font-size: 0.9em;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.md-discovery-card-artist {
-    font-size: 0.8em;
-    opacity: 0.7;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    margin-top: 0.2em;
-}
-
-/* Tags */
-.md-discovery-card-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.3em;
-    margin-top: 0.4em;
-}
-
-.md-discovery-tag {
-    font-size: 0.65em;
-    padding: 0.15em 0.5em;
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.1);
-    white-space: nowrap;
-    opacity: 0.8;
-}
-
-/* === Link Overlay === */
-
-.md-discovery-link-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr 1fr;
+    background: rgba(0, 0, 0, 0.4);
     opacity: 0;
     transition: opacity 0.2s ease;
-    background: rgba(0, 0, 0, 0.4);
+    cursor: pointer;
+    z-index: 1;
 }
 
-.md-discovery-card-img:hover .md-discovery-link-overlay {
+.cardScalable:hover .md-play-overlay {
     opacity: 1;
 }
 
-.md-discovery-link-tile {
+.md-play-overlay.md-playing {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.md-play-btn {
+    width: 3em;
+    height: 3em;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    border: none;
+    color: white;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    text-decoration: none;
-    color: white;
-    transition: background 0.15s ease;
-    gap: 0.2em;
+    transition: transform 0.15s ease, background 0.15s ease;
 }
 
-.md-discovery-link-tile .material-icons {
-    font-size: 1.6em;
+.md-play-btn:hover {
+    transform: scale(1.15);
+    background: rgba(255, 255, 255, 0.4);
 }
 
-.md-link-label {
-    font-size: 0.6em;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-/* Service brand colors */
-.md-link-lastfm {
-    background: rgba(185, 0, 0, 0.85);
-}
-.md-link-lastfm:hover {
-    background: rgba(185, 0, 0, 1);
-}
-
-.md-link-musicbrainz {
-    background: rgba(186, 51, 63, 0.85);
-}
-.md-link-musicbrainz:hover {
-    background: rgba(186, 51, 63, 1);
-}
-
-.md-link-discogs {
-    background: rgba(51, 51, 51, 0.85);
-}
-.md-link-discogs:hover {
-    background: rgba(51, 51, 51, 1);
-}
-
-.md-link-bandcamp {
-    background: rgba(29, 160, 195, 0.85);
-}
-.md-link-bandcamp:hover {
-    background: rgba(29, 160, 195, 1);
+.md-play-btn .material-icons {
+    font-size: 2em;
 }
 
 /* Loading */

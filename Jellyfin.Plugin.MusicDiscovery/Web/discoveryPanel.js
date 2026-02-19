@@ -5,6 +5,8 @@
     var _generation = 0;
     var _injecting = false;
     var _debounceTimer = null;
+    var _audio = null;       // Shared HTMLAudioElement
+    var _activeOverlay = null; // Currently playing overlay element
 
     // Load CSS
     var cssLink = document.querySelector('link[href*="MusicDiscoveryCSS"]');
@@ -59,6 +61,7 @@
         if (!nameEl || !nameEl.textContent.trim()) return;
 
         // All conditions met — inject
+        stopPreview();
         _generation++;
         var gen = _generation;
 
@@ -83,7 +86,7 @@
         loadingPanel.className = PANEL_CLASS + ' verticalSection';
         loadingPanel.dataset.itemId = item.Id;
         loadingPanel.innerHTML =
-            '<h2 class="sectionTitle md-discovery-title">Similar Music</h2>' +
+            '<h2 class="sectionTitle sectionTitle-cards">Similar Music</h2>' +
             '<div class="md-discovery-loading">' +
             '<div class="md-discovery-spinner"></div>' +
             '<span>Finding recommendations...</span>' +
@@ -131,118 +134,211 @@
         panel.className = PANEL_CLASS + ' verticalSection';
         panel.dataset.itemId = item.Id;
 
+        // Section header — matches native sectionTitleContainer
+        var headerContainer = document.createElement('div');
+        headerContainer.className = 'sectionTitleContainer sectionTitleContainer-cards padded-left';
         var header = document.createElement('h2');
-        header.className = 'sectionTitle md-discovery-title';
+        header.className = 'sectionTitle sectionTitle-cards';
         header.textContent = 'Similar ' + typeLabel;
-        panel.appendChild(header);
+        headerContainer.appendChild(header);
+        panel.appendChild(headerContainer);
 
-        var grid = document.createElement('div');
-        grid.className = 'md-discovery-grid';
+        // Horizontal scroller wrapper
+        var scroller = document.createElement('div');
+        scroller.className = 'padded-top-focusscale padded-bottom-focusscale';
+        scroller.setAttribute('data-horizontal', 'true');
+
+        var slider = document.createElement('div');
+        slider.className = 'itemsContainer scrollSlider focuscontainer-x';
+        slider.style.whiteSpace = 'nowrap';
 
         data.Recommendations.forEach(function (rec) {
-            grid.appendChild(createCard(rec));
+            slider.appendChild(createCard(rec));
         });
 
-        panel.appendChild(grid);
+        scroller.appendChild(slider);
+        panel.appendChild(scroller);
 
         var detailContent = detailPage.querySelector('.detailPageContent') || detailPage;
         detailContent.appendChild(panel);
     }
 
     function createCard(rec) {
+        // Outer card wrapper
         var card = document.createElement('div');
-        card.className = 'md-discovery-card';
+        card.className = 'card squareCard scalableCard squareCard-scalable';
+        card.style.display = 'inline-block';
 
-        // Cover art
+        var cardBox = document.createElement('div');
+        cardBox.className = 'cardBox';
+
+        var cardScalable = document.createElement('div');
+        cardScalable.className = 'cardScalable';
+
+        // Aspect ratio padder (1:1 square)
+        var padder = document.createElement('div');
+        padder.className = 'cardPadder cardPadder-square';
+
+        // Image container
         var imgContainer = document.createElement('div');
-        imgContainer.className = 'md-discovery-card-img';
+        imgContainer.className = 'cardImageContainer coveredImage cardContent';
 
         if (rec.ImageUrl) {
-            var img = document.createElement('img');
-            img.src = rec.ImageUrl;
-            img.alt = rec.Name;
-            img.loading = 'lazy';
-            imgContainer.appendChild(img);
+            imgContainer.style.backgroundImage = 'url("' + rec.ImageUrl + '")';
+            imgContainer.style.backgroundSize = 'cover';
+            imgContainer.style.backgroundPosition = 'center';
         } else {
-            imgContainer.classList.add('md-discovery-card-img-placeholder');
+            // Fallback icon
             var icon = document.createElement('span');
-            icon.className = 'material-icons';
+            icon.className = 'material-icons cardImageIcon';
             icon.textContent = rec.Type === 'artist' ? 'person' : 'album';
-            imgContainer.appendChild(icon);
+            icon.setAttribute('aria-hidden', 'true');
+            padder.appendChild(icon);
         }
 
-        // Link overlay
-        var overlay = createLinkOverlay(rec.Links);
-        imgContainer.appendChild(overlay);
+        cardScalable.appendChild(padder);
+        cardScalable.appendChild(imgContainer);
 
-        card.appendChild(imgContainer);
+        // Play button overlay (albums and tracks only)
+        if (rec.Type !== 'artist') {
+            var overlayBtn = createPlayButton(rec);
+            cardScalable.appendChild(overlayBtn);
+        }
 
-        // Info
-        var info = document.createElement('div');
-        info.className = 'md-discovery-card-info';
+        cardBox.appendChild(cardScalable);
 
-        var name = document.createElement('div');
-        name.className = 'md-discovery-card-name';
-        name.textContent = rec.Name;
-        info.appendChild(name);
+        // Footer with name and artist
+        var footer = document.createElement('div');
+        footer.className = 'cardFooter';
+
+        var nameText = document.createElement('div');
+        nameText.className = 'cardText cardTextCentered cardText-first';
+        var nameBdi = document.createElement('bdi');
+        nameBdi.textContent = rec.Name;
+        nameText.appendChild(nameBdi);
+        footer.appendChild(nameText);
 
         if (rec.ArtistName && rec.Type !== 'artist') {
-            var artist = document.createElement('div');
-            artist.className = 'md-discovery-card-artist';
-            artist.textContent = rec.ArtistName;
-            info.appendChild(artist);
+            var artistText = document.createElement('div');
+            artistText.className = 'cardText cardText-secondary cardTextCentered';
+            var artistBdi = document.createElement('bdi');
+            artistBdi.textContent = rec.ArtistName;
+            artistText.appendChild(artistBdi);
+            footer.appendChild(artistText);
         }
 
-        if (rec.Tags && rec.Tags.length > 0) {
-            var tags = document.createElement('div');
-            tags.className = 'md-discovery-card-tags';
-            rec.Tags.forEach(function (tag) {
-                var tagEl = document.createElement('span');
-                tagEl.className = 'md-discovery-tag';
-                tagEl.textContent = tag;
-                tags.appendChild(tagEl);
-            });
-            info.appendChild(tags);
-        }
+        cardBox.appendChild(footer);
+        card.appendChild(cardBox);
 
-        card.appendChild(info);
         return card;
     }
 
-    function createLinkOverlay(links) {
+    function createPlayButton(rec) {
         var overlay = document.createElement('div');
-        overlay.className = 'md-discovery-link-overlay';
+        overlay.className = 'md-play-overlay';
+        overlay.dataset.artist = rec.ArtistName || '';
+        overlay.dataset.track = rec.Type === 'track' ? rec.Name : '';
+        overlay.dataset.album = rec.Type === 'album' ? rec.Name : '';
+        overlay.dataset.type = rec.Type;
 
-        var sources = [
-            { name: 'Last.fm', url: links.LastFmUrl, cssClass: 'md-link-lastfm', icon: 'headphones' },
-            { name: 'MusicBrainz', url: links.MusicBrainzUrl, cssClass: 'md-link-musicbrainz', icon: 'library_music' },
-            { name: 'Discogs', url: links.DiscogsSearchUrl, cssClass: 'md-link-discogs', icon: 'album' },
-            { name: 'Bandcamp', url: links.BandcampSearchUrl, cssClass: 'md-link-bandcamp', icon: 'storefront' }
-        ];
+        var btn = document.createElement('button');
+        btn.className = 'md-play-btn';
+        btn.setAttribute('aria-label', 'Play preview');
 
-        var availableSources = sources.filter(function (s) { return s.url; });
+        var icon = document.createElement('span');
+        icon.className = 'material-icons';
+        icon.textContent = 'play_arrow';
 
-        availableSources.forEach(function (source) {
-            var tile = document.createElement('a');
-            tile.className = 'md-discovery-link-tile ' + source.cssClass;
-            tile.href = source.url;
-            tile.target = '_blank';
-            tile.rel = 'noopener noreferrer';
-            tile.title = source.name;
+        btn.appendChild(icon);
+        overlay.appendChild(btn);
 
-            var icon = document.createElement('span');
-            icon.className = 'material-icons';
-            icon.textContent = source.icon;
-            tile.appendChild(icon);
-
-            var label = document.createElement('span');
-            label.className = 'md-link-label';
-            label.textContent = source.name;
-            tile.appendChild(label);
-
-            overlay.appendChild(tile);
+        overlay.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            handlePlayClick(overlay);
         });
 
         return overlay;
     }
+
+    function handlePlayClick(overlay) {
+        // If this overlay is already playing, pause it
+        if (_activeOverlay === overlay && _audio && !_audio.paused) {
+            _audio.pause();
+            overlay.classList.remove('md-playing');
+            overlay.querySelector('.material-icons').textContent = 'play_arrow';
+            return;
+        }
+
+        // Stop any currently playing preview
+        stopPreview();
+
+        // Show loading state
+        var icon = overlay.querySelector('.material-icons');
+        icon.textContent = 'hourglass_empty';
+        overlay.classList.add('md-playing');
+
+        var artist = overlay.dataset.artist;
+        var searchTerm;
+
+        if (overlay.dataset.type === 'track') {
+            searchTerm = artist + ' ' + overlay.dataset.track;
+        } else {
+            // Album: search for "artist album" as a song to get a track from it
+            searchTerm = artist + ' ' + overlay.dataset.album;
+        }
+
+        fetchPreviewUrl(searchTerm)
+            .then(function (previewUrl) {
+                if (!previewUrl) {
+                    icon.textContent = 'play_arrow';
+                    overlay.classList.remove('md-playing');
+                    return;
+                }
+
+                if (!_audio) {
+                    _audio = new Audio();
+                    _audio.addEventListener('ended', function () {
+                        stopPreview();
+                    });
+                }
+
+                _audio.src = previewUrl;
+                _audio.play();
+                _activeOverlay = overlay;
+                icon.textContent = 'pause';
+            })
+            .catch(function () {
+                icon.textContent = 'play_arrow';
+                overlay.classList.remove('md-playing');
+            });
+    }
+
+    function fetchPreviewUrl(searchTerm) {
+        var url = 'https://itunes.apple.com/search?term='
+            + encodeURIComponent(searchTerm)
+            + '&media=music&entity=song&limit=1';
+
+        return fetch(url)
+            .then(function (response) { return response.json(); })
+            .then(function (data) {
+                if (data.results && data.results.length > 0 && data.results[0].previewUrl) {
+                    return data.results[0].previewUrl;
+                }
+                return null;
+            });
+    }
+
+    function stopPreview() {
+        if (_audio) {
+            _audio.pause();
+            _audio.src = '';
+        }
+        if (_activeOverlay) {
+            _activeOverlay.classList.remove('md-playing');
+            _activeOverlay.querySelector('.material-icons').textContent = 'play_arrow';
+            _activeOverlay = null;
+        }
+    }
+
 })();
