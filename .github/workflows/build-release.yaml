@@ -45,12 +45,22 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Build Release
-        run: dotnet build --configuration Release
-
       - name: Extract version from tag
         id: version
         run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Set version in meta.json
+        run: |
+          jq --arg ver "${{ steps.version.outputs.version }}.0.0" \
+            '.version = ($ver | split(".") | .[:4] | join("."))' \
+            Jellyfin.Plugin.MusicDiscovery/meta.json > meta.tmp && mv meta.tmp Jellyfin.Plugin.MusicDiscovery/meta.json
+
+      - name: Build Release
+        run: |
+          VERSION="${{ steps.version.outputs.version }}.0.0"
+          # Normalize to 4-part version (e.g., 0.2 -> 0.2.0.0)
+          VERSION=$(echo "$VERSION" | awk -F. '{printf "%s.%s.%s.%s", $1, $2, $3, $4}')
+          dotnet build --configuration Release -p:AssemblyVersion="$VERSION" -p:FileVersion="$VERSION"
 
       - name: Create plugin zip
         run: |

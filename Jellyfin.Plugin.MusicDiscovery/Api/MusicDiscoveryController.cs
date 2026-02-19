@@ -17,7 +17,7 @@ namespace Jellyfin.Plugin.MusicDiscovery.Api;
 [ApiController]
 [Route("MusicDiscovery")]
 [Produces(MediaTypeNames.Application.Json)]
-[Authorize(Policy = "DefaultAuthorization")]
+[Authorize]
 public class MusicDiscoveryController : ControllerBase
 {
     private readonly ILibraryManager _libraryManager;
