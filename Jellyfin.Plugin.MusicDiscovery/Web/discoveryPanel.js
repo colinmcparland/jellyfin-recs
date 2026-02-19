@@ -3,7 +3,8 @@
 
     var PLUGIN_ID = 'a3b9c2d1-e4f5-6789-abcd-ef0123456789';
     var PANEL_CLASS = 'musicDiscoveryPanel';
-    var _pendingTimer = null;
+    var _injectTimers = [];
+    var _generation = 0;
 
     // Load CSS
     var cssLink = document.querySelector('link[href*="MusicDiscoveryCSS"]');
@@ -14,26 +15,29 @@
         document.head.appendChild(cssLink);
     }
 
-    function scheduleInject(delay) {
-        if (_pendingTimer) clearTimeout(_pendingTimer);
-        _pendingTimer = setTimeout(function () {
-            _pendingTimer = null;
-            tryInjectPanel();
-        }, delay);
+    function scheduleInject() {
+        _injectTimers.forEach(function (t) { clearTimeout(t); });
+        _injectTimers = [];
+        _generation++;
+
+        // Stagger multiple attempts so at least one lands after Jellyfin's
+        // page transition finishes rebuilding .detailPageContent.
+        // Each attempt is idempotent — once the panel exists for the
+        // current item, later attempts are no-ops.
+        var gen = _generation;
+        var delays = [300, 700, 1200, 2000];
+        delays.forEach(function (delay) {
+            _injectTimers.push(setTimeout(function () {
+                if (gen !== _generation) return;
+                tryInjectPanel(gen);
+            }, delay));
+        });
     }
 
-    // viewshow fires when Jellyfin loads a new view type (e.g. first time opening details)
-    document.addEventListener('viewshow', function () {
-        scheduleInject(300);
-    });
+    document.addEventListener('viewshow', scheduleInject);
+    window.addEventListener('hashchange', scheduleInject);
 
-    // hashchange fires on every SPA navigation, including same-view-type navigations
-    // (e.g. album → album via "More like this") where viewshow does NOT re-fire
-    window.addEventListener('hashchange', function () {
-        scheduleInject(500);
-    });
-
-    function tryInjectPanel() {
+    function tryInjectPanel(gen) {
         var params = new URLSearchParams(
             window.location.hash.indexOf('?') > -1
                 ? window.location.hash.split('?')[1]
@@ -42,20 +46,27 @@
         var itemId = params.get('id');
         if (!itemId) return;
 
-        // Check if panel already exists
+        // Check if panel already exists for this item
         var existing = document.querySelector('.' + PANEL_CLASS);
         if (existing && existing.dataset.itemId === itemId) return;
+
+        // Make sure the detail container is present and has content
+        // (Jellyfin may still be mid-transition rebuilding it)
+        var detailContent = document.querySelector('.detailPageContent');
+        if (!detailContent || detailContent.children.length === 0) return;
+
         if (existing) existing.remove();
 
         // Fetch item info to determine type
         ApiClient.getItem(ApiClient.getCurrentUserId(), itemId).then(function (item) {
+            if (gen !== _generation) return;
             if (item.Type === 'MusicArtist' || item.Type === 'MusicAlbum' || item.Type === 'Audio') {
-                fetchAndRenderPanel(item);
+                fetchAndRenderPanel(item, gen);
             }
         });
     }
 
-    function fetchAndRenderPanel(item) {
+    function fetchAndRenderPanel(item, gen) {
         var url = ApiClient.getUrl('MusicDiscovery/Similar/' + item.Id);
 
         // Show loading state
@@ -75,6 +86,8 @@
 
         ApiClient.getJSON(url)
         .then(function (data) {
+            if (gen !== _generation) return;
+
             // Remove loading panel
             var existing = document.querySelector('.' + PANEL_CLASS);
             if (existing) existing.remove();
