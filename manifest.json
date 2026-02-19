@@ -6,6 +6,15 @@
     "overview": "Music discovery and recommendations for Jellyfin",
     "owner": "colinmcparland",
     "category": "Music",
-    "versions": []
+    "versions": [
+      {
+        "version": "0.1",
+        "changelog": "Release v0.1",
+        "targetAbi": "10.10.0.0",
+        "sourceUrl": "https://github.com/colinmcparland/jellyfin-recs/releases/download/v0.1/music-discovery_0.1.zip",
+        "checksum": "53f3b8e80baf403cc7e8c94584179072",
+        "timestamp": "2026-02-19T04:29:42Z"
+      }
+    ]
   }
 ]
