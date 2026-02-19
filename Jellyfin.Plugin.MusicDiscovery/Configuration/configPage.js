@@ -14,17 +14,16 @@ export default function (view) {
         });
 
         // Check if JavaScript Injector plugin is installed
-        fetch(ApiClient.getUrl('Plugins'), {
-            headers: { 'Authorization': 'MediaBrowserToken ' + ApiClient.accessToken() }
-        })
-        .then(function (r) { return r.json(); })
-        .then(function (plugins) {
-            var found = plugins.some(function (p) {
+        ApiClient.getJSON(ApiClient.getUrl('Plugins')).then(function (plugins) {
+            var list = Array.isArray(plugins) ? plugins : [];
+            var found = list.some(function (p) {
                 return p.Name && p.Name.indexOf('JavaScript Injector') !== -1;
             });
             view.querySelector('#jsInjectorWarning').style.display = found ? 'none' : 'block';
-        })
-        .catch(function () {});
+        }).catch(function () {
+            // If we can't check, show the warning as a safe default
+            view.querySelector('#jsInjectorWarning').style.display = 'block';
+        });
     });
 
     view.querySelector('#musicDiscoveryConfigForm')

@@ -121,7 +121,7 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             },
             new PluginPageInfo
             {
-                Name = "MusicDiscoveryConfigJS",
+                Name = "MusicDiscoveryConfig.js",
                 EmbeddedResourcePath = ns + ".Configuration.configPage.js"
             },
             new PluginPageInfo
@@ -176,16 +176,24 @@ public class PluginConfiguration : BasePluginConfiguration
 **Changes**: Admin settings page for entering Last.fm API key and tuning options
 
 ```html
-<!DOCTYPE html>
-<html>
-<head><title>Music Discovery</title></head>
-<body>
 <div id="musicDiscoveryConfigPage" data-role="page"
      class="page type-interior pluginConfigurationPage"
-     data-require="emby-input,emby-button,emby-checkbox,emby-select">
+     data-require="emby-input,emby-button,emby-checkbox,emby-select"
+     data-controller="__plugin/MusicDiscoveryConfig.js">
   <div data-role="content">
     <div class="content-primary">
       <h2>Music Discovery Settings</h2>
+
+      <div id="jsInjectorWarning" style="display:none; padding:1em; margin-bottom:1.5em; border-radius:4px; background:rgba(255,152,0,0.15); border:1px solid rgba(255,152,0,0.4);">
+        <strong>JavaScript Injector plugin required</strong>
+        <p style="margin:0.5em 0 0;">
+          The discovery panel needs the
+          <a href="https://github.com/n00bcodr/Jellyfin-JavaScript-Injector" target="_blank" rel="noopener noreferrer">JavaScript Injector</a>
+          plugin to load scripts into the Jellyfin web UI.
+          Install it from the plugin catalog, then restart Jellyfin.
+        </p>
+      </div>
+
       <form id="musicDiscoveryConfigForm">
         <div class="inputContainer">
           <label class="inputLabel inputLabelUnfocused" for="txtLastFmApiKey">
@@ -248,52 +256,64 @@ public class PluginConfiguration : BasePluginConfiguration
       </form>
     </div>
   </div>
-  <script src="configurationpage?name=MusicDiscoveryConfigJS"></script>
 </div>
-</body>
-</html>
 ```
+
+Note: Uses `data-controller` attribute instead of an inline `<script>` tag. Jellyfin 10.10.x loads the JS controller module via `configurationpage?name=MusicDiscoveryConfig.js`.
 
 **File**: `Jellyfin.Plugin.MusicDiscovery/Configuration/configPage.js`
 **Changes**: Configuration page JavaScript
 
 ```javascript
-(function () {
-    'use strict';
-    var pluginId = 'a3b9c2d1-e4f5-6789-abcd-ef0123456789';
+const pluginId = 'a3b9c2d1-e4f5-6789-abcd-ef0123456789';
 
-    document.querySelector('#musicDiscoveryConfigPage')
-        .addEventListener('pageshow', function () {
-            Dashboard.showLoadingMsg();
-            ApiClient.getPluginConfiguration(pluginId).then(function (config) {
-                document.querySelector('#txtLastFmApiKey').value = config.LastFmApiKey || '';
-                document.querySelector('#selMaxResults').value = config.MaxRecommendations || 8;
-                document.querySelector('#txtCacheDuration').value = config.CacheDurationMinutes || 30;
-                document.querySelector('#chkEnableArtists').checked = config.EnableForArtists;
-                document.querySelector('#chkEnableAlbums').checked = config.EnableForAlbums;
-                document.querySelector('#chkEnableTracks').checked = config.EnableForTracks;
-                Dashboard.hideLoadingMsg();
-            });
+export default function (view) {
+    view.addEventListener('viewshow', function () {
+        Dashboard.showLoadingMsg();
+        ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+            view.querySelector('#txtLastFmApiKey').value = config.LastFmApiKey || '';
+            view.querySelector('#selMaxResults').value = config.MaxRecommendations || 8;
+            view.querySelector('#txtCacheDuration').value = config.CacheDurationMinutes || 30;
+            view.querySelector('#chkEnableArtists').checked = config.EnableForArtists;
+            view.querySelector('#chkEnableAlbums').checked = config.EnableForAlbums;
+            view.querySelector('#chkEnableTracks').checked = config.EnableForTracks;
+            Dashboard.hideLoadingMsg();
         });
 
-    document.querySelector('#musicDiscoveryConfigForm')
+        // Check if JavaScript Injector plugin is installed
+        fetch(ApiClient.getUrl('Plugins'), {
+            headers: { 'Authorization': 'MediaBrowserToken ' + ApiClient.accessToken() }
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (plugins) {
+            var found = plugins.some(function (p) {
+                return p.Name && p.Name.indexOf('JavaScript Injector') !== -1;
+            });
+            view.querySelector('#jsInjectorWarning').style.display = found ? 'none' : 'block';
+        })
+        .catch(function () {});
+    });
+
+    view.querySelector('#musicDiscoveryConfigForm')
         .addEventListener('submit', function (e) {
             e.preventDefault();
             Dashboard.showLoadingMsg();
             ApiClient.getPluginConfiguration(pluginId).then(function (config) {
-                config.LastFmApiKey = document.querySelector('#txtLastFmApiKey').value.trim();
-                config.MaxRecommendations = parseInt(document.querySelector('#selMaxResults').value, 10);
-                config.CacheDurationMinutes = parseInt(document.querySelector('#txtCacheDuration').value, 10);
-                config.EnableForArtists = document.querySelector('#chkEnableArtists').checked;
-                config.EnableForAlbums = document.querySelector('#chkEnableAlbums').checked;
-                config.EnableForTracks = document.querySelector('#chkEnableTracks').checked;
+                config.LastFmApiKey = view.querySelector('#txtLastFmApiKey').value.trim();
+                config.MaxRecommendations = parseInt(view.querySelector('#selMaxResults').value, 10);
+                config.CacheDurationMinutes = parseInt(view.querySelector('#txtCacheDuration').value, 10);
+                config.EnableForArtists = view.querySelector('#chkEnableArtists').checked;
+                config.EnableForAlbums = view.querySelector('#chkEnableAlbums').checked;
+                config.EnableForTracks = view.querySelector('#chkEnableTracks').checked;
                 ApiClient.updatePluginConfiguration(pluginId, config)
                     .then(Dashboard.processPluginConfigurationUpdateResult);
             });
             return false;
         });
-})();
+}
 ```
+
+Note: Uses `export default function (view)` module pattern with `data-controller` instead of the IIFE `document.querySelector` pattern. The `view` parameter scopes all DOM queries to the config page element.
 
 #### 5. Placeholder Frontend Files
 
@@ -862,6 +882,7 @@ public class ServiceRegistrator : IPluginServiceRegistrator
     {
         serviceCollection.AddHttpClient("MusicDiscovery");
         serviceCollection.AddSingleton<LastFm.LastFmApiClient>();
+        serviceCollection.AddHostedService<ScriptRegistration.ScriptRegistrationService>();
     }
 }
 ```
@@ -1006,7 +1027,7 @@ namespace Jellyfin.Plugin.MusicDiscovery.Api;
 [ApiController]
 [Route("MusicDiscovery")]
 [Produces(MediaTypeNames.Application.Json)]
-[Authorize(Policy = "DefaultAuthorization")]
+[Authorize]
 public class MusicDiscoveryController : ControllerBase
 {
     private readonly ILibraryManager _libraryManager;
@@ -1630,74 +1651,218 @@ Implement the JavaScript that injects a recommendation panel into artist, album,
 
 ---
 
-## Phase 5: Script Auto-Loading
+## Phase 5: Script Auto-Loading via JavaScript Injector
 
 ### Overview
-The discovery panel JS needs to load automatically when users browse Jellyfin — not just when they visit the config page. Implement a mechanism to ensure the script loads on every page.
+The discovery panel JS needs to load automatically when users browse Jellyfin — not just when they visit the config page. Jellyfin has no built-in mechanism for plugins to inject scripts into the web client. The proven community approach (used by intro-skipper and others) is to integrate with the [JavaScript Injector plugin](https://github.com/n00bcodr/Jellyfin-JavaScript-Injector), which handles in-memory `index.html` transformation that works on read-only filesystems (Docker, Flatpak).
+
+### Why Previous Approaches Failed
+1. **Direct file injection** (Session 002): Flatpak/Docker mount `/app` as read-only — `UnauthorizedAccessException`
+2. **`IStartupFilter` middleware** (Session 003): Jellyfin wraps its pipeline inside `app.Map(baseUrl)`, so middleware registered via `IStartupFilter` runs outside that branch and never intercepts `index.html` responses
+3. **Config page bootstrap**: Only works after visiting the settings page once per session — unreliable UX
 
 ### Changes Required:
 
-#### 1. Config Page Script Loader
+#### 1. Script Registration Service
+
+**File**: `Jellyfin.Plugin.MusicDiscovery/ScriptRegistration/ScriptRegistrationService.cs`
+**Changes**: `IHostedService` that discovers the JS Injector plugin via `AssemblyLoadContext` reflection and registers a small loader script
+
+```csharp
+using System.Runtime.Loader;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json.Linq;
+
+namespace Jellyfin.Plugin.MusicDiscovery.ScriptRegistration;
+
+public class ScriptRegistrationService : IHostedService
+{
+    private const string ScriptId = "music-discovery-loader";
+
+    private static readonly string LoaderScript = """
+        if (!window.__musicDiscoveryLoaded) {
+            window.__musicDiscoveryLoaded = true;
+            var s = document.createElement('script');
+            s.src = 'configurationpage?name=MusicDiscoveryJS';
+            document.head.appendChild(s);
+        }
+        """;
+
+    private readonly ILogger<ScriptRegistrationService> _logger;
+
+    public ScriptRegistrationService(ILogger<ScriptRegistrationService> logger)
+    {
+        _logger = logger;
+    }
+
+    public Task StartAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            RegisterWithJavaScriptInjector();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Music Discovery: Failed to register with JavaScript Injector plugin");
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task StopAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            UnregisterFromJavaScriptInjector();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Music Discovery: Failed to unregister from JavaScript Injector plugin");
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private void RegisterWithJavaScriptInjector()
+    {
+        var registerMethod = FindPluginInterfaceMethod("RegisterScript");
+        if (registerMethod == null) return;
+
+        var payload = new JObject
+        {
+            { "id", ScriptId },
+            { "name", "Music Discovery Panel" },
+            { "script", LoaderScript },
+            { "enabled", true },
+            { "requiresAuthentication", true },
+            { "pluginId", Plugin.Instance?.Id.ToString() ?? string.Empty },
+            { "pluginName", "Music Discovery" },
+            { "pluginVersion", Plugin.Instance?.Version?.ToString() ?? "0.0.0" }
+        };
+
+        var result = registerMethod.Invoke(null, new object[] { payload });
+        _logger.LogInformation("Music Discovery: Registered script with JavaScript Injector (result: {Result})", result);
+    }
+
+    private void UnregisterFromJavaScriptInjector()
+    {
+        var unregisterMethod = FindPluginInterfaceMethod("UnregisterAllScriptsFromPlugin");
+        if (unregisterMethod == null) return;
+
+        var pluginId = Plugin.Instance?.Id.ToString() ?? string.Empty;
+        unregisterMethod.Invoke(null, new object[] { pluginId });
+        _logger.LogInformation("Music Discovery: Unregistered scripts from JavaScript Injector");
+    }
+
+    private System.Reflection.MethodInfo? FindPluginInterfaceMethod(string methodName)
+    {
+        var assembly = AssemblyLoadContext.All
+            .SelectMany(ctx => ctx.Assemblies)
+            .FirstOrDefault(a => a.FullName?.Contains("JavaScriptInjector", StringComparison.Ordinal) ?? false);
+
+        if (assembly == null)
+        {
+            _logger.LogWarning(
+                "Music Discovery: JavaScript Injector plugin not found. "
+                + "Install it from the Jellyfin plugin catalog to enable the discovery panel");
+            return null;
+        }
+
+        var pluginInterfaceType = assembly.GetType("Jellyfin.Plugin.JavaScriptInjector.PluginInterface");
+        if (pluginInterfaceType == null)
+        {
+            _logger.LogWarning("Music Discovery: JavaScriptInjector PluginInterface type not found");
+            return null;
+        }
+
+        var method = pluginInterfaceType.GetMethod(methodName);
+        if (method == null)
+        {
+            _logger.LogWarning("Music Discovery: {Method} method not found on PluginInterface", methodName);
+        }
+
+        return method;
+    }
+}
+```
+
+Key design decisions:
+- **Reflection-based discovery**: The JS Injector plugin lives in a separate `AssemblyLoadContext`, so we locate it via `AssemblyLoadContext.All` and call its static `PluginInterface` methods reflectively
+- **Loader script pattern**: We register a small inline script that then loads the full `discoveryPanel.js` via `configurationpage?name=MusicDiscoveryJS` — this avoids embedding the entire panel JS in the registration payload
+- **Graceful degradation**: If JS Injector isn't installed, the service logs a warning and the plugin continues to function (config page, API endpoints) without the frontend panel
+- **Cleanup on shutdown**: `StopAsync` calls `UnregisterAllScriptsFromPlugin` to remove the script registration
+
+#### 2. Service Registration
+
+**File**: `Jellyfin.Plugin.MusicDiscovery/ServiceRegistrator.cs`
+**Changes**: Register the hosted service
+
+```csharp
+serviceCollection.AddHostedService<ScriptRegistration.ScriptRegistrationService>();
+```
+
+#### 3. Config Page — JS Injector Warning Banner
 
 **File**: `Jellyfin.Plugin.MusicDiscovery/Configuration/configPage.html`
-**Changes**: Add a script loader that injects the discovery panel JS globally
+**Changes**: Add a warning banner that shows when JavaScript Injector is not installed
 
-The config page's `pageshow` event will inject a `<script>` tag for the discovery panel if it hasn't been loaded yet. Since the config page loads when users visit the plugin settings, we also need an alternative approach.
+```html
+<div id="jsInjectorWarning" style="display:none; padding:1em; margin-bottom:1.5em; border-radius:4px; background:rgba(255,152,0,0.15); border:1px solid rgba(255,152,0,0.4);">
+    <strong>JavaScript Injector plugin required</strong>
+    <p style="margin:0.5em 0 0;">
+        The discovery panel needs the
+        <a href="https://github.com/n00bcodr/Jellyfin-JavaScript-Injector" target="_blank" rel="noopener noreferrer">JavaScript Injector</a>
+        plugin to load scripts into the Jellyfin web UI.
+        Install it from the plugin catalog, then restart Jellyfin.
+    </p>
+</div>
+```
 
-#### 2. Entry Point for Script Injection
-
-**File**: `Jellyfin.Plugin.MusicDiscovery/Web/loader.js`
-**Changes**: A small loader script registered as a plugin page
+**File**: `Jellyfin.Plugin.MusicDiscovery/Configuration/configPage.js`
+**Changes**: Check the `GET /Plugins` API to detect if JS Injector is installed
 
 ```javascript
-(function () {
-    'use strict';
-
-    // Check if the main script is already loaded
-    if (window.__musicDiscoveryLoaded) return;
-    window.__musicDiscoveryLoaded = true;
-
-    // Load the main discovery panel script
-    var script = document.createElement('script');
-    script.src = 'configurationpage?name=MusicDiscoveryJS';
-    document.head.appendChild(script);
-})();
+// Check if JavaScript Injector plugin is installed
+ApiClient.getJSON(ApiClient.getUrl('Plugins')).then(function (plugins) {
+    var list = Array.isArray(plugins) ? plugins : [];
+    var found = list.some(function (p) {
+        return p.Name && p.Name.indexOf('JavaScript Injector') !== -1;
+    });
+    view.querySelector('#jsInjectorWarning').style.display = found ? 'none' : 'block';
+}).catch(function () {
+    // If we can't check, show the warning as a safe default
+    view.querySelector('#jsInjectorWarning').style.display = 'block';
+});
 ```
 
-**File**: `Jellyfin.Plugin.MusicDiscovery/Plugin.cs`
-**Changes**: Register the loader as an additional page
+Note: Uses `ApiClient.getJSON()` instead of raw `fetch()` — the raw fetch with manual `Authorization` header returned 401. `ApiClient.getJSON()` handles auth automatically.
 
-Add to `GetPages()`:
-```csharp
-new PluginPageInfo
-{
-    Name = "MusicDiscoveryLoader",
-    EmbeddedResourcePath = ns + ".Web.loader.js"
-}
+#### 4. Project Dependency
+
+**File**: `Jellyfin.Plugin.MusicDiscovery/Jellyfin.Plugin.MusicDiscovery.csproj`
+**Changes**: Add Newtonsoft.Json reference for JObject payload construction
+
+```xml
+<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
 ```
 
-#### 3. Alternative: Config Page as Bootstrap
-
-The most reliable approach for Jellyfin 10.9.x/10.10.x is to have the config page HTML include the script injection on first load. Update `configPage.html` to add this at the end of its `<script>` block:
-
-```javascript
-// Auto-load discovery panel script on first config page visit
-if (!window.__musicDiscoveryLoaded) {
-    window.__musicDiscoveryLoaded = true;
-    var discoverScript = document.createElement('script');
-    discoverScript.src = 'configurationpage?name=MusicDiscoveryJS';
-    document.head.appendChild(discoverScript);
-}
-```
-
-**Note**: This is an inherent limitation of the Jellyfin plugin architecture — there's no guaranteed auto-injection of scripts into the web client. The script loads once the config page has been visited in a session, or can be manually loaded by navigating to `configurationpage?name=MusicDiscoveryJS`. In the README we should document that users may need to visit the plugin settings page once per browser session, or bookmark the script URL.
+#### 5. Deleted Dead Code
+- `ScriptInjection/ScriptInjectionMiddleware.cs` — removed (non-functional middleware)
+- `ScriptInjection/ScriptInjectionStartupFilter.cs` — removed (non-functional startup filter)
 
 ### Success Criteria:
 
+#### Automated Verification:
+- [x] `dotnet build` succeeds
+
 #### Manual Verification:
-- [ ] After visiting the plugin config page once, the discovery panel appears on music pages
-- [ ] Script persists across page navigations within the same session
-- [ ] Script does not load multiple times (duplicate protection works)
+- [ ] JS Injector installed + Jellyfin restart → server logs show `"Music Discovery: Registered script with JavaScript Injector"`
+- [ ] Discovery panel auto-loads on music pages without visiting config page first
+- [ ] Config page shows warning banner when JS Injector is not installed
+- [ ] Config page hides warning banner when JS Injector is installed
+- [ ] Script does not load multiple times (duplicate protection via `window.__musicDiscoveryLoaded`)
+- [ ] Plugin shutdown logs show successful unregistration
 
 ---
 
@@ -1793,9 +1958,10 @@ For API errors (missing key, network issues), show a non-intrusive message:
 **Changes**: Create project README with installation and configuration instructions
 
 - Installation steps (copy DLL + meta.json to plugins directory)
+- JavaScript Injector plugin dependency and installation
 - How to obtain a Last.fm API key
 - Configuration options
-- Known limitations (script loading, web client only)
+- Known limitations (web client only, requires JS Injector)
 - Supported Jellyfin versions
 
 ### Success Criteria:
@@ -1816,8 +1982,10 @@ For API errors (missing key, network issues), show a non-intrusive message:
 ## Testing Strategy
 
 ### Manual Testing Steps:
-1. Install plugin in a Jellyfin instance with a music library
-2. Configure Last.fm API key in plugin settings
+1. Install JavaScript Injector plugin from the Jellyfin plugin catalog
+2. Install Music Discovery plugin in a Jellyfin instance with a music library
+3. Restart Jellyfin and verify server logs show `"Music Discovery: Registered script with JavaScript Injector"`
+4. Configure Last.fm API key in plugin settings
 3. Navigate to an artist page — verify "Similar Artists" panel appears
 4. Navigate to an album page — verify "Similar Albums" panel appears
 5. Navigate to a track page — verify "Similar Tracks" panel appears
@@ -1863,8 +2031,9 @@ Jellyfin.Plugin.MusicDiscovery/
 │   ├── LastFmApiClient.cs
 │   └── Models/
 │       └── LastFmResponses.cs
+├── ScriptRegistration/
+│   └── ScriptRegistrationService.cs
 └── Web/
-    ├── loader.js
     ├── discoveryPanel.js
     └── discoveryPanel.css
 ```
