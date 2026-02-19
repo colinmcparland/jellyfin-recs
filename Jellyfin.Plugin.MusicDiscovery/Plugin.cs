@@ -27,7 +27,9 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             new PluginPageInfo
             {
                 Name = "MusicDiscoveryConfig",
-                EmbeddedResourcePath = ns + ".Configuration.configPage.html"
+                EmbeddedResourcePath = ns + ".Configuration.configPage.html",
+                MenuSection = "server",
+                MenuIcon = "music_note"
             },
             new PluginPageInfo
             {

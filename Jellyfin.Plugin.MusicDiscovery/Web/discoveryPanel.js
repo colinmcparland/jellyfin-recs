@@ -46,8 +46,10 @@
         var itemId = params.get('id');
         if (!itemId) return;
 
-        // 3. Panel already exists for this item — nothing to do
-        var existing = document.querySelector('.' + PANEL_CLASS);
+        // 3. Panel already exists for this item IN THIS SLOT — nothing to do.
+        //    Must scope to detailPage, not document, because Jellyfin's 3-slot
+        //    carousel keeps hidden pages in the DOM with their own panels.
+        var existing = detailPage.querySelector('.' + PANEL_CLASS);
         if (existing && existing.dataset.itemId === itemId) return;
 
         // 4. Has Jellyfin populated the page content yet?
@@ -60,18 +62,18 @@
         _generation++;
         var gen = _generation;
 
-        // Remove stale panel from a previous item
+        // Remove stale panel from THIS slot (previous item in same slot)
         if (existing) existing.remove();
 
         ApiClient.getItem(ApiClient.getCurrentUserId(), itemId).then(function (item) {
             if (gen !== _generation) return;
             if (item.Type === 'MusicArtist' || item.Type === 'MusicAlbum' || item.Type === 'Audio') {
-                fetchAndRenderPanel(item, gen);
+                fetchAndRenderPanel(item, gen, detailPage);
             }
         });
     }
 
-    function fetchAndRenderPanel(item, gen) {
+    function fetchAndRenderPanel(item, gen, detailPage) {
         var url = ApiClient.getUrl('MusicDiscovery/Similar/' + item.Id);
 
         _injecting = true;
@@ -87,9 +89,11 @@
             '<span>Finding recommendations...</span>' +
             '</div>';
 
-        var detailContent = document.querySelector('.detailPageContent')
-            || document.querySelector('.page');
-        if (detailContent) detailContent.appendChild(loadingPanel);
+        // Scope insertion to the visible detail page's content area.
+        // Using detailPage (not document) ensures we inject into the
+        // correct carousel slot, not whichever slot is first in DOM order.
+        var detailContent = detailPage.querySelector('.detailPageContent') || detailPage;
+        detailContent.appendChild(loadingPanel);
 
         _injecting = false;
 
@@ -99,11 +103,12 @@
 
             _injecting = true;
 
-            var existing = document.querySelector('.' + PANEL_CLASS);
+            // Clean up within this slot only
+            var existing = detailPage.querySelector('.' + PANEL_CLASS);
             if (existing) existing.remove();
 
             if (data && data.Recommendations && data.Recommendations.length > 0) {
-                renderPanel(item, data);
+                renderPanel(item, data, detailPage);
             }
 
             _injecting = false;
@@ -111,13 +116,13 @@
         .catch(function (err) {
             console.error('Music Discovery: Error fetching recommendations', err);
             _injecting = true;
-            var existing = document.querySelector('.' + PANEL_CLASS);
+            var existing = detailPage.querySelector('.' + PANEL_CLASS);
             if (existing) existing.remove();
             _injecting = false;
         });
     }
 
-    function renderPanel(item, data) {
+    function renderPanel(item, data, detailPage) {
         var typeLabel = data.SourceType === 'artist' ? 'Artists'
             : data.SourceType === 'album' ? 'Albums'
             : 'Tracks';
@@ -140,11 +145,8 @@
 
         panel.appendChild(grid);
 
-        var detailContent = document.querySelector('.detailPageContent')
-            || document.querySelector('.page');
-        if (detailContent) {
-            detailContent.appendChild(panel);
-        }
+        var detailContent = detailPage.querySelector('.detailPageContent') || detailPage;
+        detailContent.appendChild(panel);
     }
 
     function createCard(rec) {

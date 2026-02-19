@@ -1,12 +1,11 @@
 /* === Music Discovery Panel === */
 
 .musicDiscoveryPanel {
-    margin-top: 2em;
-    padding: 0 1em;
+
 }
 
 .md-discovery-title {
-    font-size: 1.4em;
+    font-size: 1.5em;
     margin-bottom: 0.8em;
 }
 
@@ -27,7 +26,7 @@
 /* Card */
 .md-discovery-card {
     background: rgba(255, 255, 255, 0.05);
-    border-radius: 8px;
+    border-radius: .2em;
     overflow: hidden;
     transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
