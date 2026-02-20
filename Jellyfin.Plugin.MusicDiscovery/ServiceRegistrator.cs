@@ -10,6 +10,7 @@ public class ServiceRegistrator : IPluginServiceRegistrator
     {
         serviceCollection.AddHttpClient("MusicDiscovery");
         serviceCollection.AddSingleton<LastFm.LastFmApiClient>();
+        serviceCollection.AddSingleton<Data.SavedRecommendationStore>();
         serviceCollection.AddHostedService<ScriptRegistration.ScriptRegistrationService>();
     }
 }

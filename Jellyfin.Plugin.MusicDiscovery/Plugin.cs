@@ -47,6 +47,16 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             {
                 Name = "MusicDiscoveryCSS",
                 EmbeddedResourcePath = ns + ".Web.discoveryPanel.css"
+            },
+            new PluginPageInfo
+            {
+                Name = "SavedRecommendationsPage",
+                EmbeddedResourcePath = ns + ".Web.savedRecommendationsPage.html"
+            },
+            new PluginPageInfo
+            {
+                Name = "SavedRecommendationsPage.js",
+                EmbeddedResourcePath = ns + ".Web.savedRecommendationsPage.js"
             }
         };
     }

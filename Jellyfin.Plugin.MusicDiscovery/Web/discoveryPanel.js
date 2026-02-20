@@ -26,14 +26,17 @@
     var observer = new MutationObserver(function () {
         if (_injecting) return;
         if (_debounceTimer) clearTimeout(_debounceTimer);
-        _debounceTimer = setTimeout(checkPage, 200);
+        _debounceTimer = setTimeout(function () {
+            checkPage();
+            checkHomePage();
+        }, 200);
     });
 
     observer.observe(document.body, { childList: true, subtree: true });
 
     // Also run once immediately in case the page is already rendered
     // (handles F5 where viewshow fired before our script loaded)
-    setTimeout(checkPage, 0);
+    setTimeout(function () { checkPage(); checkHomePage(); }, 0);
 
     function checkPage() {
         // 1. Are we on a detail page?
@@ -83,6 +86,91 @@
                 fetchAndRenderPanel(item, gen, detailPage);
             }
         });
+    }
+
+    function checkHomePage() {
+        var homePage = document.querySelector('.homePage:not(.hide)')
+                    || document.querySelector('#homeTab:not(.hide)');
+        if (!homePage) return;
+
+        // Don't re-inject if section already present
+        if (homePage.querySelector('.md-saved-section')) return;
+
+        var url = ApiClient.getUrl('MusicDiscovery/Saved') + '?limit=12';
+        ApiClient.getJSON(url).then(function (data) {
+            if (!data || !data.Items || data.Items.length === 0) return;
+            // Re-check in case observer fired again while fetch was in-flight
+            if (homePage.querySelector('.md-saved-section')) return;
+            renderHomepageSection(data.Items, homePage);
+        });
+    }
+
+    function renderHomepageSection(items, container) {
+        _injecting = true;
+
+        var section = document.createElement('div');
+        section.className = 'verticalSection md-saved-section';
+
+        // Header with "View All" link
+        var headerContainer = document.createElement('div');
+        headerContainer.className = 'sectionTitleContainer sectionTitleContainer-cards';
+        var header = document.createElement('h2');
+        header.className = 'sectionTitle sectionTitle-cards';
+        header.textContent = 'Saved Recommendations';
+
+        var viewAllLink = document.createElement('a');
+        viewAllLink.className = 'button-flat button-flat-mini sectionTitleTextButton btnMoreFromGenre';
+        viewAllLink.href = '#/configurationpage?name=SavedRecommendationsPage';
+        viewAllLink.textContent = 'View All >';
+        viewAllLink.style.marginLeft = '1em';
+        viewAllLink.style.fontSize = '0.8em';
+
+        headerContainer.appendChild(header);
+        headerContainer.appendChild(viewAllLink);
+        section.appendChild(headerContainer);
+
+        // Scroller — same pattern as detail page
+        var scroller = document.createElement('div', 'emby-scroller');
+        scroller.setAttribute('is', 'emby-scroller');
+        scroller.className = 'padded-top-focusscale padded-bottom-focusscale no-padding emby-scroller';
+        scroller.setAttribute('data-centerfocus', 'true');
+        scroller.setAttribute('data-scroll-mode-x', 'custom');
+
+        var slider = document.createElement('div');
+        slider.className = 'scrollSlider focuscontainer-x itemsContainer animatedScrollX';
+        slider.style.whiteSpace = 'nowrap';
+
+        items.forEach(function (item) {
+            var rec = {
+                Name: item.Name, ArtistName: item.ArtistName,
+                ImageUrl: item.ImageUrl, Type: item.Type,
+                Tags: item.Tags || [],
+                MatchScore: item.MatchScore || 0,
+                Links: { LastFmUrl: item.LastFmUrl }
+            };
+            var card = createCard(rec);
+            // Mark bookmark as saved
+            var btn = card.querySelector('.md-bookmark-btn');
+            if (btn) {
+                btn.querySelector('.material-icons').textContent = 'bookmark';
+                btn.classList.add('md-saved');
+                btn.setAttribute('aria-label', 'Remove saved recommendation');
+            }
+            slider.appendChild(card);
+        });
+
+        scroller.appendChild(slider);
+        section.appendChild(scroller);
+
+        // Insert near the top of the homepage content
+        var firstSection = container.querySelector('.verticalSection');
+        if (firstSection) {
+            container.insertBefore(section, firstSection);
+        } else {
+            container.appendChild(section);
+        }
+
+        _injecting = false;
     }
 
     function fetchAndRenderPanel(item, gen, detailPage) {
@@ -163,8 +251,7 @@
         scroller.setAttribute('data-centerfocus', 'true');
         scroller.setAttribute('data-scroll-mode-x', 'custom');
 
-        var slider = document.createElement('div', 'emby-itemscontainer');
-        slider.setAttribute('is', 'emby-itemscontainer');
+        var slider = document.createElement('div');
         slider.className = 'scrollSlider focuscontainer-x itemsContainer animatedScrollX';
         slider.style.whiteSpace = 'nowrap';
 
@@ -177,6 +264,9 @@
 
         var detailContent = detailPage.querySelector('.detailPageContent') || detailPage;
         detailContent.appendChild(panel);
+
+        // Check which recommendations are already saved
+        checkSavedState(data.Recommendations, slider);
     }
 
     function renderEmptyPanel(item, detailPage) {
@@ -240,6 +330,23 @@
             cardScalable.appendChild(overlayBtn);
         }
 
+        // Bookmark button — top-right corner
+        var bookmarkBtn = document.createElement('button');
+        bookmarkBtn.className = 'md-bookmark-btn';
+        bookmarkBtn.setAttribute('aria-label', 'Save recommendation');
+        var bookmarkIcon = document.createElement('span');
+        bookmarkIcon.className = 'material-icons';
+        bookmarkIcon.textContent = 'bookmark_border';
+        bookmarkBtn.appendChild(bookmarkIcon);
+
+        bookmarkBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            handleBookmarkClick(bookmarkBtn, rec);
+        });
+
+        cardScalable.appendChild(bookmarkBtn);
+
         cardBox.appendChild(cardScalable);
 
         // Name text — link to Last.fm (direct child of cardBox, no cardFooter wrapper)
@@ -281,6 +388,71 @@
         card.appendChild(cardBox);
 
         return card;
+    }
+
+    function handleBookmarkClick(btn, rec) {
+        var icon = btn.querySelector('.material-icons');
+        var isSaved = icon.textContent === 'bookmark';
+
+        if (isSaved) {
+            var url = ApiClient.getUrl('MusicDiscovery/Saved');
+            ApiClient.ajax({
+                type: 'DELETE', url: url,
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    Name: rec.Name, ArtistName: rec.ArtistName, Type: rec.Type
+                })
+            }).then(function () {
+                icon.textContent = 'bookmark_border';
+                btn.classList.remove('md-saved');
+                btn.setAttribute('aria-label', 'Save recommendation');
+            });
+        } else {
+            var url = ApiClient.getUrl('MusicDiscovery/Saved');
+            ApiClient.ajax({
+                type: 'POST', url: url,
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    Name: rec.Name, ArtistName: rec.ArtistName,
+                    ImageUrl: rec.ImageUrl, MatchScore: rec.MatchScore,
+                    Tags: rec.Tags, Type: rec.Type,
+                    LastFmUrl: (rec.Links && rec.Links.LastFmUrl) || null
+                })
+            }).then(function () {
+                icon.textContent = 'bookmark';
+                btn.classList.add('md-saved');
+                btn.setAttribute('aria-label', 'Remove saved recommendation');
+            });
+        }
+    }
+
+    function checkSavedState(recommendations, container) {
+        var names = recommendations.map(function(r) { return r.Name; });
+        var artists = recommendations.map(function(r) { return r.ArtistName; });
+        var types = recommendations.map(function(r) { return r.Type; });
+
+        var url = ApiClient.getUrl('MusicDiscovery/Saved/Check')
+            + '?names=' + encodeURIComponent(names.join(','))
+            + '&artists=' + encodeURIComponent(artists.join(','))
+            + '&types=' + encodeURIComponent(types.join(','));
+
+        ApiClient.getJSON(url).then(function (savedList) {
+            var savedKeys = {};
+            savedList.forEach(function (s) {
+                savedKeys[s.Name + '\0' + s.ArtistName + '\0' + s.Type] = true;
+            });
+
+            var bookmarkBtns = container.querySelectorAll('.md-bookmark-btn');
+            recommendations.forEach(function (rec, i) {
+                var key = rec.Name + '\0' + rec.ArtistName + '\0' + rec.Type;
+                if (savedKeys[key] && bookmarkBtns[i]) {
+                    var icon = bookmarkBtns[i].querySelector('.material-icons');
+                    icon.textContent = 'bookmark';
+                    bookmarkBtns[i].classList.add('md-saved');
+                    bookmarkBtns[i].setAttribute('aria-label', 'Remove saved recommendation');
+                }
+            });
+        });
     }
 
     function createPlayButton(rec) {

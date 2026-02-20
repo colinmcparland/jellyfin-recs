@@ -4,13 +4,15 @@
 
 }
 
-/* Horizontal scroll for discovery section */
-.musicDiscoveryPanel .scrollSlider {
+/* Horizontal scroll for discovery sections */
+.musicDiscoveryPanel .scrollSlider,
+.md-saved-section .scrollSlider {
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none; /* Firefox */
 }
 
-.musicDiscoveryPanel .scrollSlider::-webkit-scrollbar {
+.musicDiscoveryPanel .scrollSlider::-webkit-scrollbar,
+.md-saved-section .scrollSlider::-webkit-scrollbar {
     display: none; /* Chrome/Safari */
 }
 
@@ -81,6 +83,43 @@
     background: rgba(0, 0, 0, 0.3);
 }
 
+/* Bookmark button — top-right corner of tile */
+.md-bookmark-btn {
+    position: absolute;
+    top: 0.3em;
+    right: 0.3em;
+    z-index: 2;
+    background: rgba(0, 0, 0, 0.5);
+    border: none;
+    border-radius: 50%;
+    width: 2em;
+    height: 2em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s ease, background 0.15s ease;
+}
+
+.cardScalable:hover .md-bookmark-btn {
+    opacity: 1;
+}
+
+/* Always show filled bookmark (already saved) */
+.md-bookmark-btn.md-saved {
+    opacity: 0.8;
+}
+
+.md-bookmark-btn:hover {
+    background: rgba(0, 0, 0, 0.7);
+}
+
+.md-bookmark-btn .material-icons {
+    font-size: 1.2em;
+}
+
 /* Loading */
 .md-discovery-loading {
     display: flex;
@@ -101,4 +140,44 @@
 
 @keyframes md-spin {
     to { transform: rotate(360deg); }
+}
+
+/* Saved Recommendations grid (View All page) */
+.md-saved-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 1em;
+    padding: 1em 0;
+}
+
+/* Delete button on saved cards */
+.md-delete-btn {
+    position: absolute;
+    top: 0.3em;
+    right: 0.3em;
+    z-index: 2;
+    background: rgba(200, 0, 0, 0.7);
+    border: none;
+    border-radius: 50%;
+    width: 2em;
+    height: 2em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s ease, background 0.15s ease;
+}
+
+.cardScalable:hover .md-delete-btn {
+    opacity: 1;
+}
+
+.md-delete-btn:hover {
+    background: rgba(200, 0, 0, 0.9);
+}
+
+.md-delete-btn .material-icons {
+    font-size: 1.2em;
 }
