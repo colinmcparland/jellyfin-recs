@@ -90,7 +90,7 @@
 
     function checkHomePage() {
         var homePage = document.querySelector('.homePage:not(.hide)')
-                    || document.querySelector('#homeTab:not(.hide)');
+            || document.querySelector('#homeTab:not(.hide)');
         if (!homePage) return;
 
         // Don't re-inject if section already present
@@ -118,6 +118,7 @@
         var header = document.createElement('h2');
         header.className = 'sectionTitle sectionTitle-cards';
         header.textContent = 'Saved Recommendations';
+        header.style.display = 'block';
 
         var viewAllLink = document.createElement('a');
         viewAllLink.className = 'button-flat button-flat-mini sectionTitleTextButton';
@@ -135,7 +136,7 @@
         scroller.className = 'padded-top-focusscale padded-bottom-focusscale md-home-scroller';
 
         var slider = document.createElement('div');
-        slider.className = 'scrollSlider focuscontainer-x itemsContainer';
+        slider.className = 'scrollSlider focuscontainer-x';
         slider.style.whiteSpace = 'nowrap';
 
         items.forEach(function (item) {
@@ -260,7 +261,7 @@
         scroller.setAttribute('data-scroll-mode-x', 'custom');
 
         var slider = document.createElement('div');
-        slider.className = 'scrollSlider focuscontainer-x itemsContainer animatedScrollX';
+        slider.className = 'scrollSlider focuscontainer-x animatedScrollX';
         slider.style.whiteSpace = 'nowrap';
 
         data.Recommendations.forEach(function (rec) {
@@ -435,9 +436,9 @@
     }
 
     function checkSavedState(recommendations, container) {
-        var names = recommendations.map(function(r) { return r.Name; });
-        var artists = recommendations.map(function(r) { return r.ArtistName; });
-        var types = recommendations.map(function(r) { return r.Type; });
+        var names = recommendations.map(function (r) { return r.Name; });
+        var artists = recommendations.map(function (r) { return r.ArtistName; });
+        var types = recommendations.map(function (r) { return r.Type; });
 
         var url = ApiClient.getUrl('MusicDiscovery/Saved/Check');
 

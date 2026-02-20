@@ -1,6 +1,30 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Jellyfin.Plugin.MusicDiscovery.LastFm.Models;
+
+/// <summary>
+/// Last.fm returns "" (empty string) instead of an object when a container
+/// field like "tags" or "similar" has no data. This converter returns a
+/// default <typeparamref name="T"/> when it encounters a string token.
+/// </summary>
+public class LastFmEmptyStringConverter<T> : JsonConverter<T> where T : new()
+{
+    public override T Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.String)
+        {
+            return new T();
+        }
+
+        return JsonSerializer.Deserialize<T>(ref reader, options) ?? new T();
+    }
+
+    public override void Write(Utf8JsonWriter writer, T value, JsonSerializerOptions options)
+    {
+        JsonSerializer.Serialize(writer, value, options);
+    }
+}
 
 // === Shared ===
 
@@ -136,6 +160,7 @@ public class AlbumInfoData
     public string Playcount { get; set; } = "0";
 
     [JsonPropertyName("tags")]
+    [JsonConverter(typeof(LastFmEmptyStringConverter<AlbumTagsContainer>))]
     public AlbumTagsContainer Tags { get; set; } = new();
 }
 
@@ -198,9 +223,11 @@ public class ArtistInfoData
     public ArtistInfoStats Stats { get; set; } = new();
 
     [JsonPropertyName("similar")]
+    [JsonConverter(typeof(LastFmEmptyStringConverter<ArtistInfoSimilarContainer>))]
     public ArtistInfoSimilarContainer Similar { get; set; } = new();
 
     [JsonPropertyName("tags")]
+    [JsonConverter(typeof(LastFmEmptyStringConverter<ArtistInfoTagsContainer>))]
     public ArtistInfoTagsContainer Tags { get; set; } = new();
 }
 
