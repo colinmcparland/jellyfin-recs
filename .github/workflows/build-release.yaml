@@ -16,7 +16,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '9.0.x'
 
       - name: Restore
         run: dotnet restore
@@ -29,7 +29,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: plugin-dll
-          path: Jellyfin.Plugin.MusicDiscovery/bin/Release/net8.0/Jellyfin.Plugin.MusicDiscovery.dll
+          path: Jellyfin.Plugin.MusicDiscovery/bin/Release/net9.0/Jellyfin.Plugin.MusicDiscovery.dll
 
   release:
     needs: build
@@ -43,7 +43,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '9.0.x'
 
       - name: Extract version from tag
         id: version
@@ -65,9 +65,9 @@ jobs:
       - name: Create plugin zip
         run: |
           mkdir -p release
-          cp Jellyfin.Plugin.MusicDiscovery/bin/Release/net8.0/Jellyfin.Plugin.MusicDiscovery.dll release/
+          cp Jellyfin.Plugin.MusicDiscovery/bin/Release/net9.0/Jellyfin.Plugin.MusicDiscovery.dll release/
           cp Jellyfin.Plugin.MusicDiscovery/meta.json release/
-          cp Jellyfin.Plugin.MusicDiscovery/bin/Release/net8.0/logo.png release/
+          cp Jellyfin.Plugin.MusicDiscovery/bin/Release/net9.0/logo.png release/
           cd release
           zip ../music-discovery_${{ steps.version.outputs.version }}.zip *
 
@@ -85,7 +85,7 @@ jobs:
           # Use jq to add the new version entry (prepend to versions array)
           jq --arg ver "$VERSION" \
              --arg changelog "Release v${VERSION}" \
-             --arg abi "10.10.0.0" \
+             --arg abi "10.11.0.0" \
              --arg url "$SOURCE_URL" \
              --arg md5 "$CHECKSUM" \
              --arg ts "$TIMESTAMP" \
