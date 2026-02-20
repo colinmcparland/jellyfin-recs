@@ -1,6 +1,8 @@
 using System;
 using System.Linq;
+using System.Net.Http;
 using System.Net.Mime;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.MusicDiscovery.LastFm;
@@ -22,15 +24,18 @@ public class MusicDiscoveryController : ControllerBase
 {
     private readonly ILibraryManager _libraryManager;
     private readonly LastFmApiClient _lastFmClient;
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<MusicDiscoveryController> _logger;
 
     public MusicDiscoveryController(
         ILibraryManager libraryManager,
         LastFmApiClient lastFmClient,
+        IHttpClientFactory httpClientFactory,
         ILogger<MusicDiscoveryController> logger)
     {
         _libraryManager = libraryManager;
         _lastFmClient = lastFmClient;
+        _httpClientFactory = httpClientFactory;
         _logger = logger;
     }
 
@@ -92,7 +97,7 @@ public class MusicDiscoveryController : ControllerBase
         }).ToList();
 
         // Enrich with tags and images (Last.fm deprecated artist images,
-        // so we fall back to the artist's top album cover art)
+        // so we fall back to the artist's top album art, then iTunes artist art)
         var enrichTasks = recommendations.Select(async rec =>
         {
             var info = await _lastFmClient.GetArtistInfoAsync(rec.Name, ct);
@@ -104,6 +109,11 @@ public class MusicDiscoveryController : ControllerBase
                 var topAlbums = await _lastFmClient.GetArtistTopAlbumsAsync(rec.Name, 1, ct);
                 if (topAlbums.Count > 0)
                     rec.ImageUrl = GetBestImage(topAlbums[0].Images);
+            }
+
+            if (string.IsNullOrEmpty(rec.ImageUrl))
+            {
+                rec.ImageUrl = await GetArtistImageFromITunesAsync(rec.Name, ct);
             }
         });
         await Task.WhenAll(enrichTasks);
@@ -204,6 +214,36 @@ public class MusicDiscoveryController : ControllerBase
         }
 
         return images.FirstOrDefault(i => !string.IsNullOrEmpty(i.Url))?.Url;
+    }
+
+    private async Task<string?> GetArtistImageFromITunesAsync(
+        string artistName, CancellationToken ct)
+    {
+        try
+        {
+            var searchUrl = $"https://itunes.apple.com/search?term={Uri.EscapeDataString(artistName)}&entity=musicArtist&limit=1";
+            var client = _httpClientFactory.CreateClient("MusicDiscovery");
+            var response = await client.GetAsync(searchUrl, ct);
+            if (!response.IsSuccessStatusCode) return null;
+
+            var json = await response.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(json);
+            var results = doc.RootElement.GetProperty("results");
+            if (results.GetArrayLength() == 0) return null;
+
+            var first = results[0];
+            if (first.TryGetProperty("artworkUrl100", out var artworkEl))
+            {
+                // Upscale from 100x100 to 600x600
+                return artworkEl.GetString()?.Replace("100x100", "600x600");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "iTunes artist image lookup failed for {Artist}", artistName);
+        }
+
+        return null;
     }
 
     private static string? NullIfEmpty(string? value)

@@ -1,9 +1,9 @@
 [
   {
     "guid": "a3b9c2d1-e4f5-6789-abcd-ef0123456789",
-    "name": "Music Discovery",
+    "name": "New Music Discovery",
     "description": "Discover similar music while browsing your library. Adds a 'Similar Music' panel to artist, album, and track pages with recommendations from Last.fm, with links to MusicBrainz, Discogs, Bandcamp, and Last.fm.",
-    "overview": "Music discovery and recommendations for Jellyfin",
+    "overview": "New music discovery and recommendations for Jellyfin",
     "owner": "colinmcparland",
     "category": "Music",
     "versions": [

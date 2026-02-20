@@ -209,8 +209,17 @@
         cardScalable.appendChild(padder);
         cardScalable.appendChild(imgContainer);
 
-        // Play button overlay (albums and tracks only)
-        if (rec.Type !== 'artist') {
+        if (rec.Type === 'artist' && rec.Links && rec.Links.LastFmUrl) {
+            // Artist cards: entire image links to Last.fm profile
+            var imgLink = document.createElement('a');
+            imgLink.className = 'md-artist-img-link';
+            imgLink.href = rec.Links.LastFmUrl;
+            imgLink.target = '_blank';
+            imgLink.rel = 'noopener noreferrer';
+            imgLink.title = rec.Name + ' on Last.fm';
+            cardScalable.appendChild(imgLink);
+        } else if (rec.Type !== 'artist') {
+            // Play button overlay (albums and tracks only)
             var overlayBtn = createPlayButton(rec);
             cardScalable.appendChild(overlayBtn);
         }

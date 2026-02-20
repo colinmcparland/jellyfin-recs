@@ -67,6 +67,7 @@ jobs:
           mkdir -p release
           cp Jellyfin.Plugin.MusicDiscovery/bin/Release/net8.0/Jellyfin.Plugin.MusicDiscovery.dll release/
           cp Jellyfin.Plugin.MusicDiscovery/meta.json release/
+          cp Jellyfin.Plugin.MusicDiscovery/bin/Release/net8.0/logo.png release/
           cd release
           zip ../music-discovery_${{ steps.version.outputs.version }}.zip *
 
@@ -103,10 +104,10 @@ jobs:
           files: music-discovery_${{ steps.version.outputs.version }}.zip
           generate_release_notes: true
 
-      - name: Commit updated manifest
+      - name: Commit updated manifest and meta.json
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add manifest.json
-          git commit -m "Update manifest.json for v${{ steps.version.outputs.version }}"
+          git add manifest.json Jellyfin.Plugin.MusicDiscovery/meta.json
+          git commit -m "Update manifest.json and meta.json for v${{ steps.version.outputs.version }}"
           git push origin HEAD:main
